@@ -18,7 +18,7 @@ ctx.fillRect(0, 0, engine.size.x, engine.size.y);
 let step = 0;
 function render() {
 
-  ctx.fillStyle = 'rgba(0,0,0,0.1)';
+  ctx.fillStyle = 'rgba(0,0,0,0.2)';
   ctx.fillRect(0, 0, engine.size.x, engine.size.y);
 
   // ctx.clearRect(0, 0, canvas.width, canvas.height);
