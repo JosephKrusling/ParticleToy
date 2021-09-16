@@ -5,6 +5,7 @@ import {
   dist,
   dist2,
   Engine,
+  getHue,
   Particle,
   repel,
   scale,
@@ -40,8 +41,32 @@ export function createEngine(size: V2D): Engine {
   return {
     particles,
     size,
-    wallWidth: 15,
+    wallWidth: 5,
   };
+}
+
+function enforceBoundsTeleport(engine: Engine, particle: Particle) {
+  const p = particle.position;
+  const v = particle.velocity;
+  let hit = false;
+  if (p.x < engine.wallWidth + particle.radius) {
+    p.x = engine.size.x - engine.wallWidth - particle.radius;
+    hit = true;
+  } else if (p.x > engine.size.x - engine.wallWidth - particle.radius) {
+    p.x = engine.wallWidth + particle.radius;
+    hit = true;
+  }
+  if (p.y < engine.wallWidth + particle.radius) {
+    p.y = engine.size.y - engine.wallWidth - particle.radius;
+    hit = true;
+  } else if (p.y > engine.size.y - engine.wallWidth - particle.radius) {
+    p.y = engine.wallWidth + particle.radius;
+    hit = true;
+  }
+  if (hit) {
+    v.x = v.x * wallHitFactor;
+    v.y = v.y * wallHitFactor;
+  }
 }
 
 function enforceBounds(engine: Engine, particle: Particle) {
@@ -80,30 +105,45 @@ function enforceBounds(engine: Engine, particle: Particle) {
   }
 }
 
-function getClosestParticle(
-  to: Particle,
-  others: Particle[]
-): [Particle, number] {
-  let bestDist = Number.MAX_VALUE;
-  let bestParticle = null;
-  for (let particle of others) {
-    if (particle.id === to.id) {
+function getBest(
+  p: Particle,
+  others: Particle[],
+  scorer: (p1: Particle, p2: Particle) => number
+): Particle {
+  let best = Number.NEGATIVE_INFINITY;
+  let bestParticle = undefined as Particle | undefined;
+  for (let neighbor of others) {
+    // Skip self
+    if (p.id === neighbor.id) {
       continue;
     }
-    let d2 = dist2(to.position, particle.position);
-    if (d2 < bestDist) {
-      bestDist = d2;
-      bestParticle = particle;
+
+    const score = scorer(p, neighbor);
+    if (score > best) {
+      best = score;
+      bestParticle = neighbor;
     }
   }
-  return [bestParticle!, Math.sqrt(bestDist)];
+  return bestParticle!;
 }
 
-function getColorSimilarity(c1: Color, c2: Color): number {
-  return (
-    1 -
-    (Math.abs(c1.r - c2.r) + Math.abs(c1.g - c2.g) + Math.abs(c1.b - c2.b)) /
-      (255 * 3)
+function getClosest(p: Particle, others: Particle[]): Particle {
+  return getBest(p, others, (p1, p2) => 1 - dist(p1.position, p2.position));
+}
+
+function getFurthest(p: Particle, others: Particle[]): Particle {
+  return getBest(p, others, (p1, p2) => dist(p1.position, p2.position));
+}
+
+function getMostSimilarByColor(p: Particle, others: Particle[]) {
+  return getBest(
+    p,
+    others,
+    (p1, p2) =>
+      0 -
+      Math.pow(p1.color.r - p2.color.r, 2) -
+      Math.pow(p1.color.g - p2.color.g, 2) -
+      Math.pow(p1.color.b - p2.color.b, 2)
   );
 }
 
@@ -116,7 +156,6 @@ export function runEngineStep(engine: Engine, dt: number) {
       if (neighbor.id === particle.id) {
         continue;
       }
-      // particle.data = Math.floor(nearestd);
       const d = dist(particle.position, neighbor.position);
       const angle = angleBetween(particle.position, neighbor.position);
 
@@ -132,22 +171,30 @@ export function runEngineStep(engine: Engine, dt: number) {
       const chargeMaxEffect = 2;
       let chargeForce =
         chargeMaxEffect / Math.max(chargeMinRadius * chargeMinRadius, d * d);
-      // if (particle.charge === neighbor.charge) {
-      //   chargeForce *= -1;
-      // }
       netForce += chargeForce;
 
       // Anticollider force
       const edgeDist = d - particle.radius - neighbor.radius;
       if (edgeDist < 0) {
         // netForce += -0.1;
-        netForce += edgeDist/(particle.radius + neighbor.radius)
+        netForce += edgeDist / (particle.radius + neighbor.radius);
       }
 
       // particle.data = particle.charge
       particle.velocity.x += Math.cos(angle) * netForce;
       particle.velocity.y += Math.sin(angle) * netForce;
     }
+
+    //Friend tracker
+    // const friend = getClosest(particle, engine.particles);
+    // const angle = angleBetween(particle.position, friend.position);
+    // let power = 0.01;
+    // if (getHue(particle.color) > getHue(friend.color)) {
+    //   power *= -1;
+    // }
+
+    // particle.velocity.x += Math.cos(angle) * power;
+    // particle.velocity.y += Math.sin(angle) * power;
 
     const energyLossFactory = 1 - 0.001;
     particle.velocity = scale(particle.velocity, energyLossFactory);
