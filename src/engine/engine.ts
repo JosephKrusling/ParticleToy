@@ -1,7 +1,18 @@
-import { add, angleBetween, dist, dist2, Engine, Particle, repel, scale, V2D } from "./types";
+import {
+  add,
+  angleBetween,
+  Color,
+  dist,
+  dist2,
+  Engine,
+  Particle,
+  repel,
+  scale,
+  V2D,
+} from "./types";
 import { randAround0 } from "./util";
 
-const wallHitFactor = 0.6;
+const wallHitFactor = 0.9;
 
 export function createEngine(size: V2D): Engine {
   // Initialize particles
@@ -13,18 +24,23 @@ export function createEngine(size: V2D): Engine {
         x: Math.floor(Math.random() * size.x),
         y: Math.floor(Math.random() * size.y),
       },
-      velocity: {x: randAround0(), y: randAround0()},
-      radius: 21,
+      color: {
+        r: Math.floor(Math.random() * 255),
+        g: Math.floor(Math.random() * 255),
+        b: Math.floor(Math.random() * 255),
+      },
+      velocity: { x: randAround0(), y: randAround0() },
+      radius: 5 + Math.round(Math.random() * 5),
       data: 0,
-      interactor: () => ({x: 0, y: 0})
+      charge: Math.random() > 0.5 ? 1 : -1,
+      interactor: () => ({ x: 0, y: 0 }),
     });
-
   }
 
   return {
     particles,
     size,
-    wallWidth: 10
+    wallWidth: 15,
   };
 }
 
@@ -64,7 +80,10 @@ function enforceBounds(engine: Engine, particle: Particle) {
   }
 }
 
-function getClosestParticle(to: Particle, others: Particle[]): [Particle, number] {
+function getClosestParticle(
+  to: Particle,
+  others: Particle[]
+): [Particle, number] {
   let bestDist = Number.MAX_VALUE;
   let bestParticle = null;
   for (let particle of others) {
@@ -80,6 +99,14 @@ function getClosestParticle(to: Particle, others: Particle[]): [Particle, number
   return [bestParticle!, Math.sqrt(bestDist)];
 }
 
+function getColorSimilarity(c1: Color, c2: Color): number {
+  return (
+    1 -
+    (Math.abs(c1.r - c2.r) + Math.abs(c1.g - c2.g) + Math.abs(c1.b - c2.b)) /
+      (255 * 3)
+  );
+}
+
 export function runEngineStep(engine: Engine, dt: number) {
   for (let particle of engine.particles) {
     enforceBounds(engine, particle);
@@ -90,30 +117,40 @@ export function runEngineStep(engine: Engine, dt: number) {
         continue;
       }
       // particle.data = Math.floor(nearestd);
-      const d2 = dist2(particle.position, neighbor.position);
+      const d = dist(particle.position, neighbor.position);
       const angle = angleBetween(particle.position, neighbor.position);
 
-      let attractorMagnitude = 0;
-      if (d2 < 5000) {
-        attractorMagnitude = 0.01;
+      // Particles > 1000 away are irrelevant
+      if (d > 1000) {
+        continue;
       }
 
-      // Collision detection
-      if (d2 < Math.pow(particle.radius + neighbor.radius, 2)) {
-        particle.data += 1;
-        attractorMagnitude *= -10 ;
-        if (d2 < Math.pow(particle.radius + neighbor.radius, 2)) {
-          attractorMagnitude *= 5;
-        }
+      let netForce = 0;
+
+      // Charge force
+      const chargeMinRadius = particle.radius + neighbor.radius;
+      const chargeMaxEffect = 2;
+      let chargeForce =
+        chargeMaxEffect / Math.max(chargeMinRadius * chargeMinRadius, d * d);
+      // if (particle.charge === neighbor.charge) {
+      //   chargeForce *= -1;
+      // }
+      netForce += chargeForce;
+
+      // Anticollider force
+      const edgeDist = d - particle.radius - neighbor.radius;
+      if (edgeDist < 0) {
+        // netForce += -0.1;
+        netForce += edgeDist/(particle.radius + neighbor.radius)
       }
 
-      particle.velocity.x += Math.cos(angle) * attractorMagnitude;
-      particle.velocity.y += Math.sin(angle) * attractorMagnitude;
+      // particle.data = particle.charge
+      particle.velocity.x += Math.cos(angle) * netForce;
+      particle.velocity.y += Math.sin(angle) * netForce;
     }
 
-    const energyLossFactory = 1 - (0.01);
+    const energyLossFactory = 1 - 0.001;
     particle.velocity = scale(particle.velocity, energyLossFactory);
-
 
     particle.position = add(particle.position, scale(particle.velocity, dt));
   }

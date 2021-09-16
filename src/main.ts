@@ -12,10 +12,16 @@ const ctx = canvas.getContext('2d')!;
 document.body.append(canvas);
 
 const engine = createEngine({x: canvas.width, y: canvas.height});
+ctx.fillStyle = 'black';
+ctx.fillRect(0, 0, engine.size.x, engine.size.y);
 
 let step = 0;
 function render() {
-  ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+  ctx.fillStyle = 'rgba(0,0,0,0.1)';
+  ctx.fillRect(0, 0, engine.size.x, engine.size.y);
+
+  // ctx.clearRect(0, 0, canvas.width, canvas.height);
   ctx.fillText(`Step: ${step}`, 50, 50);
 
   for (let i = 0; i < engineStepsPerFrame; i++) {

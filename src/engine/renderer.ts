@@ -1,4 +1,4 @@
-import { Engine } from "./types";
+import { Color, Engine } from "./types";
 
 function drawWalls(engine: Engine, ctx: CanvasRenderingContext2D) {
   ctx.fillStyle = "pink";
@@ -25,10 +25,15 @@ function scaleColor(scale: number) {
     scale = 1;
   }
 
-  return `rgba(${scale * 255},${scale*64},${scale*64},0.25)`
+  return `rgba(${scale * 255},${scale*64},${scale*64})`
+}
+
+function colorToCss(color: Color): string {
+  return `rgba(${Math.round(color.r)},${Math.round(color.g)},${Math.round(color.b)},1)`
 }
 
 export function drawEngineState(engine: Engine, ctx: CanvasRenderingContext2D) {
+
   drawWalls(engine, ctx);
   ctx.font = "20px Monospace";
 
@@ -38,7 +43,7 @@ export function drawEngineState(engine: Engine, ctx: CanvasRenderingContext2D) {
     const y = engine.size.y - particle.position.y;
 
     console.log(color);
-    ctx.fillStyle = color;
+    ctx.fillStyle = colorToCss(particle.color);
 
     ctx.beginPath();
     ctx.arc(x, y, particle.radius, 0, Math.PI*2)

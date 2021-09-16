@@ -10,12 +10,20 @@ export interface Particle {
   velocity: V2D;
   radius: number;
   data: number;
+  color: Color;
+  charge: number;
   interactor: Interactor;
 }
 
 export interface V2D {
   x: number;
   y: number;
+}
+
+export interface Color {
+  r: number;
+  g: number;
+  b: number;
 }
 
 export type Interactor = (p1: Particle, p2: Particle) => V2D
